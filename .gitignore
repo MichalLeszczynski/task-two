@@ -1,0 +1,7 @@
+**/jinja2**
+**/markup**
+packaged-stack.yaml
+*.txt
+!requirements.txt
+*.pem
+.vscode

@@ -1,0 +1,4 @@
+{
+    "action": "Delete",
+    "stack_name": "mlesz-ec2-stack"
+}

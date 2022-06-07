@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Deploy task-one solution'
+
+Parameters:
+  ActionsDynamoDbTableName:
+    Type: String
+    Default: mlesz-cfn-actions
+
+  StatesDynamoDbTableName:
+    Type: String
+    Default: mlesz-cfn-states
+
+
+Resources:
+  RequestFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: DynamodbFunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:PutItem
+            Resource: '*'
+
+  StreamFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: IAMFunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - iam:CreateInstanceProfile
+            - iam:DeleteInstanceProfile
+            - iam:GetRole
+            - iam:AddRoleToInstanceProfile
+            - iam:RemoveRoleFromInstanceProfile
+            - iam:CreateRole
+            - iam:DeleteRole
+            - iam:PutRolePolicy
+            - iam:PassRole
+            - iam:GetRolePolicy
+            - iam:DeleteRolePolicy
+            Resource: "*"
+      - PolicyName: SSMFunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:PutParameter
+            - ssm:DeleteParameter
+            Resource: "*"
+      - PolicyName: EC2FunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:AuthorizeSecurityGroupIngress
+            - ec2:TerminateInstances
+            - ec2:CreateTags
+            - ec2:RunInstances
+            - ec2:CreateSecurityGroup
+            - ec2:CreateSnapshots
+            - ec2:DeleteSecurityGroup
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeKeyPairs
+            - ec2:DescribeInstances
+            - ec2:CreateKeyPair
+            - ec2:DeleteKeyPair
+            - ec2:CreateSubnet
+            - ec2:AssociateSubnetCidrBlock
+            - ec2:DescribeSubnets
+            - ec2:CreateSubnet
+            - ec2:DeleteSubnet
+            - ec2:CreateNetworkAcl
+            - ec2:DeleteNetworkAcl
+            - ec2:DescribeNetworkAcls
+            - ec2:ReplaceNetworkAclAssociation
+            - ec2:CreateNetworkAclEntry
+            - ec2:DeleteNetworkAclEntry
+            Resource: "*"
+      - PolicyName: CFNFunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - cloudformation:CreateStack
+            - cloudformation:DescribeStacks
+            - cloudformation:ListStacks
+            - cloudformation:DeleteStack
+            Resource: "*"
+      - PolicyName: S3FunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:CreateBucket
+            - s3:DeleteBucket
+            - s3:GetObject
+            - s3:ListBucket
+            Resource: "*"
+      - PolicyName: StreamFunctionPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow #allow to write logs to cloudwatch
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow #allow lambda to read from the event stream
+            Action:
+            - dynamodb:DescribeStream
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            Resource: "*"
+
+  RequestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Example
+      Handler: main.request_handler
+      Runtime: python3.9
+      Role: !GetAtt 'RequestFunctionRole.Arn'
+      Timeout: 300
+      Code: "./request_handler_function"
+      Environment:
+        Variables:
+          ActionsDynamoDbTableName: !Ref ActionsDynamoDbTableName
+
+  StreamFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Example
+      Handler: main.stream_handler
+      Runtime: python3.9
+      Role: !GetAtt 'StreamFunctionRole.Arn'
+      Timeout: 300
+      Code: "./stack_creator_function"
+      Environment:
+        Variables:
+          ActionsDynamoDbTableName: !Ref ActionsDynamoDbTableName
+          StatesDynamoDbTableName: !Ref StatesDynamoDbTableName
+
+  RequestUrlFunctionPermissions:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RequestFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: AWS_IAM
+
+  RequestFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !Ref RequestFunction
+      AuthType: AWS_IAM
+
+  ActionsDynamoDBTable: 
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: !Ref ActionsDynamoDbTableName
+      AttributeDefinitions: 
+        - AttributeName: "Stackname"
+          AttributeType: "S"
+
+        - AttributeName: "Timestamp"
+          AttributeType: "S"
+
+      KeySchema: 
+        - AttributeName: "Stackname"
+          KeyType: "HASH"
+
+        - AttributeName: "Timestamp"
+          KeyType: "RANGE"
+
+      ProvisionedThroughput: 
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+  
+  StatesDynamoDBTable: 
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: !Ref StatesDynamoDbTableName
+      AttributeDefinitions: 
+        - AttributeName: "Stackname"
+          AttributeType: "S"
+
+      KeySchema: 
+        - AttributeName: "Stackname"
+          KeyType: "HASH"
+
+      ProvisionedThroughput: 
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  TableStreamFunctionMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: True
+      EventSourceArn: !GetAtt ActionsDynamoDBTable.StreamArn
+      FunctionName: !GetAtt StreamFunction.Arn
+      StartingPosition: LATEST
+
+Outputs:
+  FunctionUrl:
+    Description: Url to invoke deployed Function
+    Value: !GetAtt RequestFunctionUrl.FunctionUrl
