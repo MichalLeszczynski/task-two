@@ -17,12 +17,20 @@ Parameters:
     Default: {{ instance_type|default("t2.micro", true) }}
   KeyName:
     Description: SSH Keypair to login to the instance
-    Type: String #AWS::EC2::KeyPair::KeyName
+    Type: String
     Default: {{ ssh_key_name|default("aws-rsa", true) }}
   DemoBucketName:
     Type: String
     Description: Name of demo bucket
     Default: {{ bucket_name|default("mleszczynsk-demobucket", true) }}
+  VpcId:
+    Type: String
+    Description: Id of existing vpc where you want to deploy your stack
+    Default: {{ vpc_id|default("vpc-0758469e3cb08040d", true) }}
+  SubnetCidrBlock:
+    Type: String
+    Description: Id of existing vpc where you want to deploy your stack
+    Default: {{ subnet_cidr_block|default("172.31.48.0/20", true) }}
 
 Resources:
 
@@ -39,14 +47,14 @@ Resources:
   DemoSubnet:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: "vpc-0758469e3cb08040d"
-      CidrBlock: 172.31.48.0/20
+      VpcId: !Ref VpcId
+      CidrBlock: !Ref SubnetCidrBlock
       AvailabilityZone: "eu-central-1a"
 
   DemoNetworkAcl:
     Type: AWS::EC2::NetworkAcl
     Properties: 
-      VpcId: "vpc-0758469e3cb08040d"
+      VpcId: !Ref VpcId
       
   SSHInboundRule:
     Type: AWS::EC2::NetworkAclEntry
@@ -125,7 +133,6 @@ Resources:
   DemoInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
-      InstanceProfileName: demo-ec2-instance-profile
       Path: /
       Roles: 
        - !Ref DemoEc2InstanceRole
@@ -133,7 +140,6 @@ Resources:
   DemoEc2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: demo-ec2-instance-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
