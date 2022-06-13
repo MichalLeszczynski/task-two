@@ -2,7 +2,7 @@
 STACKNAME=mlesz-lambda-stack-t2
 BUCKETNAME=mlesz-cloudformation-templates-t2
 REGION=eu-central-1
-DEPLOYED_INTERNAL_STACK=mlesz-ec2-stack
+DEPLOYED_INTERNAL_STACK=mlesz-ec2-stack-t2
 
 validate:
 	aws cloudformation validate-template --template-body file://external-stack.yaml

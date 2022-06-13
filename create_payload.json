@@ -1,11 +1,12 @@
 {
     "action": "Create",
-    "stack_name": "mlesz-ec2-stack",
+    "stack_name": "mlesz-ec2-stack-t2",
     "launch_params": {
         "template_filename": "internal-stack.yaml.j2",
         "template_params": {
-            "bucket_name": "mlesz-ec2-bucket",
-            "ssh_key_name": "mlesz-ssh-key"
+            "bucket_name": "mlesz-ec2-bucket-t2",
+            "ssh_key_name": "mlesz-ssh-key-t2",
+            "subnet_cidr_block": "172.31.80.0/20"
         }
     }
 }
